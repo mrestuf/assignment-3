@@ -1,66 +1,110 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"html/template"
-	"log"
+	"io/ioutil"
 	"math/rand"
-	"net/http"
 	"time"
+
+	"github.com/gin-gonic/gin"
 )
 
 func main() {
-	http.HandleFunc("/index", GetStatusHandler)
+	go func() {
+		for range time.Tick(time.Second * 15) {
+			WriteJSONFile()
+		}
+	}()
+	startRoute := StartApp()
+	startRoute.Run(":4000")
+}
 
-	log.Println("server running at port", ":4000")
-	http.ListenAndServe(":4000", nil)
+func StartApp() *gin.Engine {
+	r := gin.Default()
+	r.GET("/index", GetStatusHandler)
+	return r
+}
+
+type StatusJSON struct {
+	Status map[string]int `json: "status"`
 }
 
 type Status struct {
-	Water       int
-	WaterStatus string
-	Wind        int
-	WindStatus  string
+	Water       int    `json:"water"`
+	WaterStatus string `json:"waterStatus"`
+	Wind        int    `json:"wind"`
+	WindStatus  string `json:"windStatus"`
+}
+
+func WriteJSONFile() {
+	data := StatusJSON{
+		Status: map[string]int{
+			"water": rand.Intn(100),
+			"wind":  rand.Intn(100),
+		},
+	}
+
+	jsonData, err := json.MarshalIndent(data, "", "\t")
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	err = ioutil.WriteFile("status.json", jsonData, 0644)
+	if err != nil {
+		fmt.Println(err)
+	}
 }
 
 func GetStatus() Status {
 	var status Status
-	rand.Seed(time.Now().Unix())
+	statusJSON := StatusJSON{}
+	data, err := ioutil.ReadFile("status.json")
+	if err != nil {
+		fmt.Println(err)
+	}
 
-	status.Water = rand.Intn(100) + 1
-	status.Wind = rand.Intn(100) + 1
+	err = json.Unmarshal(data, &status)
+	if err != nil {
+		fmt.Println(err)
+	}
 
-	if status.Water <= 5 {
+	water := statusJSON.Status["water"]
+	wind := statusJSON.Status["wind"]
+
+	if water <= 5 {
 		status.WaterStatus = "Aman"
-	} else if status.Water > 5 && status.Water < 9 {
+	} else if 6 <= water && water <= 8 {
 		status.WaterStatus = "Siaga"
-	} else if status.Water >= 9 {
-		status.WaterStatus = "Bahaya"
 	} else {
-		status.WaterStatus = "-"
+		status.WaterStatus = "Bahaya"
 	}
 
-	if status.Wind <= 6 {
+	if wind <= 6 {
 		status.WindStatus = "Aman"
-	} else if status.Wind > 6 && status.Wind < 16 {
+	} else if 7 <= wind && wind <= 15 {
 		status.WindStatus = "Siaga"
-	} else if status.Wind >= 16 {
-		status.WindStatus = "Bahaya"
 	} else {
-		status.WindStatus = "-"
+		status.WindStatus = "Bahaya"
 	}
+
+	status.Water = water
+	status.Wind = wind
+
+	// ctx.JSON(http.StatusOK, status)
 
 	return status
 }
 
-func GetStatusHandler(w http.ResponseWriter, r *http.Request) {
+func GetStatusHandler(ctx *gin.Context) {
 	data := GetStatus()
 
-	tmpl, err := template.ParseFiles("./page/index.html")
+	var t, err = template.ParseFiles("page/index.html")
 	if err != nil {
-		fmt.Fprintf(w, "error")
+		fmt.Println(err)
 		return
 	}
 
-	tmpl.Execute(w, data)
+	t.Execute(ctx.Writer, data)
 }

@@ -78,7 +78,7 @@
             </div>
             <div class="col">
                     <h5 class="card-title">Wind Status</h5>
-                    <p class="card-text">{{.Wind}} <span>m/s</span></p>
+                    <p class="card-text" id="wind">{{.Wind}} <span>m/s</span></p>
                    
                     {{ if or (eq .WindStatus "Aman") (eq .WindStatus "aman") }}
                     <div class="alert alert-success">
@@ -123,5 +123,6 @@
             </div>
           </div>
           </div>  
+          <script src="index.js"></script>
 </body>
 </html>
